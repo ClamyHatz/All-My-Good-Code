@@ -1,0 +1,28 @@
+Ok, so this is a big one here. I made this "game" in high school Junior, so the code is crude. The main file to run is called slime.py,
+and you might have a problem with images, because of course I didn't know I good way to add images, and you know... it's python. So, you 
+can just browse through the code but I'll add descriptions below this area.
+
+This game was unfinished, because I had family issues during the making of the game, and it was just a passion project. going to leave 
+will not work only the right side is complete. I'd say I did about 1/3 of the game but it was going to be huge, I only worked out the 
+mapping of half the maze. The completion flags aren't implemented, but I did have plans for them.
+
+A1 - E5 description.
+So, these are the different "rooms" in my maze, in my initial design there were going to be up to 9 rooms per row so it'd be A1 - E9.
+Each file is its own room, there's a 2D array per room that stores each block of the room, the 0's being empty spots, 1's being walls, 
+and 2's being warp blocks that would send you to the next room over. the other numbers are just for extra blocks that are for looks.
+
+ColRow description
+This is where I made the comment and row logic for each of the blocks it took up a lot of space so I decided to put it there.
+
+Room0 - roomMakerTop description
+These are the basic temples of each of the different room types that I made it to. Their names should speak for themselves.
+
+slime description
+slime is the main of the project it contains a lot of running logic and transferring from room to room + movement of everything. this one 
+is jam-packed with info and logic, so if you want to see some crazy code go there.
+
+SlimeTime description
+this was the main, it contains an older worse version of the game, if you want to see it run it I guess.
+
+vars description
+this holds variables that I use through out the code, was going to be used to store player stats.
