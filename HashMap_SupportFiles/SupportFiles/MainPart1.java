@@ -1,17 +1,16 @@
-
 package edu.sfsu.cs.datastructures;
 
 import java.util.*;
 
 public class MainPart1 {
     /*
-    * Question 1:
-    * - In this question you will use the Data.users array that includes
-    * a list of users. Formatted as : firstname,lastname,age,email,gender,city,state
-    * - Create a User class that should parse all the parameters for each user.
-    * - Insert each of the users in a list.
-    * - Print out the TOP 10 oldest users.
-    * */
+     * Question 1:
+     * - In this question you will use the Data.users array that includes
+     * a list of users. Formatted as : firstname,lastname,age,email,gender,city,state
+     * - Create a User class that should parse all the parameters for each user.
+     * - Insert each of the users in a list.
+     * - Print out the TOP 10 oldest users.
+     * */
 
     public static void main(String[] args) {
         HashMap<Integer, String[]> mapMap = new HashMap<>();
@@ -72,12 +71,37 @@ public class MainPart1 {
         System.out.println(hState);
         // --- Task 3
         System.out.println();
-        HashSet<User> hUsers = new HashSet<>(uList);
-        HashSet<User> hOtherUsers = new HashSet<>(uOtherList);
-        hUsers.retainAll(hOtherUsers);
-        System.out.println("Users together: ");
+        HashSet<User> hUsers = new HashSet<>(uList);//users
+        HashSet<User> hOtherUsers = new HashSet<>(uOtherList);//other users
+        hUsers.retainAll(hOtherUsers);//combined users
+        System.out.println("Users together ordered: ");
+        HashMap<String, Integer> hUState = new HashMap<>();//how many people are in each state for the combined one
+        for(String s: Data.states){
+            hUState.put(s, 0);
+        }
         for(User u: hUsers){
-            System.out.println(u);
+            hUState.replace(u.getState(), hUState.get(u.getState()), hUState.get(u.getState()) + 1);
+        }
+        while(!hUState.isEmpty()) {
+            int high = 0;
+            for (int value : hUState.values()) {
+                if (value > high) {
+                    high = value;
+                }
+            }
+            String cont = "";
+            for(String key: hUState.keySet()) {
+                if(hUState.get(key) == high){
+                    cont = key;
+                    break;
+                }
+            }
+            for(User u: hUsers){
+                if(u.getState().equals(cont)){
+                    System.out.println(u);
+                    hUState.remove(cont);
+                }
+            }
         }
     }
 }
