@@ -1,7 +1,11 @@
 package edu.sfsu.cs.datastructures;
 
 import java.util.*;
-
+/*
+Assignment #09
+921804582@_HW09
+Lily Keus
+ */
 public class MainPart1 {
     /*
      * Question 1:
@@ -11,7 +15,6 @@ public class MainPart1 {
      * - Insert each of the users in a list.
      * - Print out the TOP 10 oldest users.
      * */
-
     public static void main(String[] args) {
         HashMap<Integer, String[]> mapMap = new HashMap<>();
         mapMap.put(0, Data.users);
