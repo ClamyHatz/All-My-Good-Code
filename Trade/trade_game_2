@@ -60,11 +60,11 @@ def trade_game():
 
                 # Choose action
                 if shares[chosen_ticker] == 0:
-                    action = input("Enter 'buy', 'buy all', or 'hold': ").strip().lower()
+                    action = input("Enter 'buy' or 'buy all': ").strip().lower()
                 elif balance < price:
-                    action = input("Enter 'sell', 'sell all', or 'hold': ").strip().lower()
+                    action = input("Enter 'sell' or 'sell all': ").strip().lower()
                 else:
-                    action = input("Enter 'buy', 'buy all', 'sell', 'sell all', or 'hold': ").strip().lower()
+                    action = input("Enter 'buy', 'buy all', 'sell', or 'sell all': ").strip().lower()
 
                 # Process Actions
                 if action == "buy":
@@ -90,8 +90,6 @@ def trade_game():
                 elif action == "sell all":
                     balance += shares[chosen_ticker] * price
                     shares[chosen_ticker] = 0
-                    act -= 1
-                elif action == "hold":
                     act -= 1
                 else:
                     print("Invalid input, try again.")
@@ -120,11 +118,11 @@ def trade_game():
 
             # Choose action
             if shares[chosen_ticker] == 0:
-                action = input("Enter 'buy', 'buy all', or 'hold': ").strip().lower()
+                action = input("Enter 'buy' or 'buy all': ").strip().lower()
             elif balance < price:
-                action = input("Enter 'sell', 'sell all', or 'hold': ").strip().lower()
+                action = input("Enter 'sell' or 'sell all': ").strip().lower()
             else:
-                action = input("Enter 'buy', 'buy all', 'sell', 'sell all', or 'hold': ").strip().lower()
+                action = input("Enter 'buy', 'buy all', 'sell', or 'sell all': ").strip().lower()
 
             # Process Actions
             if action == "buy":
@@ -150,8 +148,6 @@ def trade_game():
             elif action == "sell all":
                 balance += shares[chosen_ticker] * price
                 shares[chosen_ticker] = 0
-                act = True
-            elif action == "hold":
                 act = True
             else:
                 print("Invalid input, try again.")
