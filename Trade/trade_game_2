@@ -1,0 +1,167 @@
+import yfinance as yf
+import pandas as pd
+
+# Fetch historical data (1 year, daily) for multiple stocks
+tickers = ["NVDA", "COST", "WMT", "TSLA", "GOOGL", "GOOG", "AMZN", "MSFT", "AAPL"]
+
+stock_data = {}
+
+for ticker in tickers:
+    data = yf.download(ticker, period="1y", interval="1d")
+    data = data[['Close']]
+    data.reset_index(inplace=True)
+    data.columns = ['Date', 'Price']
+    
+    stock_data[ticker] = data  # Store data in dictionary
+
+# Initialize game parameters
+balance = 200.0
+shares = {ticker: 0 for ticker in tickers}  # Dictionary for shares per stock
+day = 0
+limit_actions = True
+
+def get_price(ticker, day):
+    return stock_data[ticker].iloc[day]['Price']
+
+def trade_game():
+    global balance, shares, day, limit_actions
+    transactions = []
+
+    while day < len(stock_data[tickers[0]]):
+        if limit_actions:
+            act = 10
+        total_money = balance  # Start with just cash
+
+        # Build the stock info string dynamically
+        stock_info = []
+        for ticker in tickers:
+            price = get_price(ticker, day)
+            total_money += shares[ticker] * price  # Add stock value to total
+            stock_info.append(f"{ticker} - S$: {price:.2f}, S#: {round(shares[ticker], 2)}")
+        
+        if limit_actions:
+            while act >= 1:
+                # Print Day, Balance, and All Stocks
+                print("\n" + "-" * 50)
+                print(f"Day {day + 1} | Balance: ${balance:.2f} | Total: ${total_money:.2f} | Actions Remaining: {act}")
+                print(" | ".join(stock_info))
+                print("-" * 50 + "\n")
+
+                # Choose stock to trade
+                chosen_ticker = input("Enter a stock ticker to trade or enter 'end' to end day: ").strip().upper()
+                if chosen_ticker == "end":
+                    act = 0 # end day
+                    break
+                if chosen_ticker not in stock_data:
+                    print("Invalid stock, try again.")
+                    continue
+                
+                price = get_price(chosen_ticker, day)  # Get price of selected stock
+
+                # Choose action
+                if shares[chosen_ticker] == 0:
+                    action = input("Enter 'buy', 'buy all', or 'hold': ").strip().lower()
+                elif balance < price:
+                    action = input("Enter 'sell', 'sell all', or 'hold': ").strip().lower()
+                else:
+                    action = input("Enter 'buy', 'buy all', 'sell', 'sell all', or 'hold': ").strip().lower()
+
+                # Process Actions
+                if action == "buy":
+                    amount = float(input("Enter amount to invest: "))
+                    if amount > balance:
+                        print("Not enough funds! Try again.")
+                        continue
+                    shares[chosen_ticker] += amount / price
+                    balance -= amount
+                    act -= 1
+                elif action == "buy all":
+                    shares[chosen_ticker] += balance / price
+                    balance = 0
+                    act -= 1
+                elif action == "sell":
+                    amount = float(input("Enter number of shares to sell: "))
+                    if amount > shares[chosen_ticker]:
+                        print("Not enough shares! Try again.")
+                        continue
+                    balance += amount * price
+                    shares[chosen_ticker] -= amount
+                    act -= 1
+                elif action == "sell all":
+                    balance += shares[chosen_ticker] * price
+                    shares[chosen_ticker] = 0
+                    act -= 1
+                elif action == "hold":
+                    act -= 1
+                else:
+                    print("Invalid input, try again.")
+                    continue
+
+            transactions.append([day + 1, balance, stock_info, total_money])
+            day += 1
+        else:
+            # Print Day, Balance, and All Stocks
+            print("\n" + "-" * 50)
+            print(f"Day {day + 1} | Balance: ${balance:.2f} | Total: ${total_money:.2f}")
+            print(" | ".join(stock_info))
+            print("-" * 50 + "\n")
+
+            # Choose stock to trade
+            chosen_ticker = input("Enter a stock ticker to trade or press Enter to skip day: ").strip().upper()
+            if chosen_ticker == "":
+                day += 1  # Skip day
+                continue
+            if chosen_ticker not in stock_data:
+                print("Invalid stock, try again.")
+                continue
+
+            price = get_price(chosen_ticker, day)  # Get price of selected stock
+
+            # Choose action
+            if shares[chosen_ticker] == 0:
+                action = input("Enter 'buy', 'buy all', or 'hold': ").strip().lower()
+            elif balance < price:
+                action = input("Enter 'sell', 'sell all', or 'hold': ").strip().lower()
+            else:
+                action = input("Enter 'buy', 'buy all', 'sell', 'sell all', or 'hold': ").strip().lower()
+
+            # Process Actions
+            if action == "buy":
+                amount = float(input("Enter amount to invest: "))
+                if amount > balance:
+                    print("Not enough funds! Try again.")
+                    continue
+                shares[chosen_ticker] += amount / price
+                balance -= amount
+                act = True
+            elif action == "buy all":
+                shares[chosen_ticker] += balance / price
+                balance = 0
+                act = True
+            elif action == "sell":
+                amount = float(input("Enter number of shares to sell: "))
+                if amount > shares[chosen_ticker]:
+                    print("Not enough shares! Try again.")
+                    continue
+                balance += amount * price
+                shares[chosen_ticker] -= amount
+                act = True
+            elif action == "sell all":
+                balance += shares[chosen_ticker] * price
+                shares[chosen_ticker] = 0
+                act = True
+            elif action == "hold":
+                act = True
+            else:
+                print("Invalid input, try again.")
+                continue
+
+            if act:
+                transactions.append([day + 1, balance, shares[chosen_ticker], total_money])
+                day += 1
+
+    df = pd.DataFrame(transactions, columns=["Day", "Balance", "Shares", "Total Value"])
+    df.to_csv("trade_history.csv", index=False)
+    print("Game Over! Results saved to trade_history.csv.")
+
+trade_game()
