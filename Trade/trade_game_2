@@ -48,8 +48,8 @@ def trade_game():
                 print("-" * 50 + "\n")
 
                 # Choose stock to trade
-                chosen_ticker = input("Enter a stock ticker to trade or enter 'end' to end day: ").strip().upper()
-                if chosen_ticker == "end":
+                chosen_ticker = input("Enter a stock ticker to trade or press Enter to end day: ").strip().upper()
+                if chosen_ticker == "":
                     act = 0 # end day
                     break
                 if chosen_ticker not in stock_data:
@@ -99,6 +99,7 @@ def trade_game():
 
             transactions.append([day + 1, balance, stock_info, total_money])
             day += 1
+            
         else:
             # Print Day, Balance, and All Stocks
             print("\n" + "-" * 50)
@@ -157,7 +158,7 @@ def trade_game():
                 continue
 
             if act:
-                transactions.append([day + 1, balance, shares[chosen_ticker], total_money])
+                transactions.append([day + 1, balance, stock_info, total_money])
                 day += 1
 
     df = pd.DataFrame(transactions, columns=["Day", "Balance", "Shares", "Total Value"])
