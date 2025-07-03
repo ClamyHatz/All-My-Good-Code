@@ -1,0 +1,289 @@
+#include <opencv2/opencv.hpp>
+#include <tesseract/baseapi.h>
+#include <leptonica/allheaders.h>
+#include <Windows.h>
+#include <fstream>
+#include <sstream>
+#include <unordered_set>
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <iostream>
+#include <map>
+#include <unordered_map>
+#include <locale>
+#include <codecvt>
+
+//g++ Mew_Bot.cpp -o mew_bot -IC:/msys64/mingw64/include -IC:/msys64/mingw64/include/opencv4 -LC:/msys64/mingw64/lib -lopencv_core -lopencv_imgproc -lopencv_imgcodecs -lopencv_highgui -ltesseract -lgdi32
+
+// Simplify name: lowercase, remove accents, etc.
+std::string normalize(const std::string& input) {
+    int FFlag;
+    std::string out;
+    FFlag = 0;
+    for (char c : input) {
+        if ((unsigned char)c >= 128) continue; // skip non-ASCII
+        if (FFlag == 0){
+            out += toupper(c);
+            FFlag = 1;
+        }
+        else{
+            out += tolower(c);
+        }
+    }
+    return out;
+}
+// Trim whitespace helper
+std::string trim(const std::string& s) {
+    const char* whitespace = " \t\n\r\f\v\""; // <-- note the extra quote character here
+    size_t start = s.find_first_not_of(whitespace);
+    if (start == std::string::npos) return "";
+    size_t end = s.find_last_not_of(whitespace);
+    return s.substr(start, end - start + 1);
+}
+
+// Struct for Pokemon info
+struct Pokemon {
+    std::string name;
+    std::string type1;
+    std::string type2;
+};
+
+// Load the type chart CSV (chart.csv)
+void loadChart(const std::string& filename,
+               std::map<std::pair<std::string, std::string>, double>& typeChart,
+               std::vector<std::string>& defendingTypes) {
+    std::ifstream file(filename);
+    if (!file) {
+        std::cerr << "Failed to open chart file: " << filename << "\n";
+        return;
+    }
+
+    std::string line;
+    // Read header line
+    if (std::getline(file, line)) {
+        std::stringstream ss(line);
+        std::string cell;
+        std::getline(ss, cell, ','); // Skip "Attacking"
+        while (std::getline(ss, cell, ',')) {
+            defendingTypes.push_back(trim(cell));
+        }
+    }
+
+    // Read attacking types and multipliers
+    while (std::getline(file, line)) {
+        std::stringstream ss(line);
+        std::string attackingType;
+        if (!std::getline(ss, attackingType, ',')) continue;
+        attackingType = trim(attackingType);
+
+        for (const std::string& defendingType : defendingTypes) {
+            std::string multiplierStr;
+            if (!std::getline(ss, multiplierStr, ',')) break;
+            double multiplier = std::stod(trim(multiplierStr));
+            typeChart[{trim(attackingType), trim(defendingType)}] = multiplier;
+        }
+    }
+}
+
+// Load Pokemon CSV (pokemon.csv)
+void loadPokemon(const std::string& filename,
+                 std::map<std::string, Pokemon>& pokemonMap) {
+    std::ifstream file(filename);
+    if (!file) {
+        std::cerr << "Failed to open pokemon file: " << filename << "\n";
+        return;
+    }
+
+    std::string line;
+    bool firstLine = true;
+
+    std::vector<std::string> bannedForms = {
+        "Mega", "Gigantamax", "Gmax", "Alolan", "Hisuian",
+        "Galarian", "Therian", "Origin", "Battle Bond", "Totem"
+    };
+
+    while (std::getline(file, line)) {
+        if (firstLine) { firstLine = false; continue; } // Skip header
+
+        std::stringstream ss(line);
+        std::string cell;
+        std::vector<std::string> fields;
+
+        while (std::getline(ss, cell, ',')) {
+            fields.push_back(trim(cell));
+        }
+
+        if (fields.size() < 5) continue;  // Need at least Name, Form, Type1, Type2
+
+        std::string name = fields[1];
+        std::string form = fields[2];
+        std::string type1 = fields[3];
+        std::string type2 = fields[4];
+
+        // Skip unwanted alternate forms
+        bool isAltForm = false;
+        for (const std::string& banned : bannedForms) {
+            if (form.find(banned) != std::string::npos) {
+                isAltForm = true;
+                break;
+            }
+        }
+        if (isAltForm) continue;
+
+        // Store Pokémon under its base name
+        pokemonMap[name] = Pokemon{name, type1, type2};
+    }
+}
+
+// Get effectiveness multiplier given attacking and defending types
+double getMultiplier(const std::string& attacking, const std::string& defending,
+                     const std::map<std::pair<std::string, std::string>, double>& typeChart) {
+    std::string atk = trim(attacking);
+    std::string def = trim(defending);
+    auto it = typeChart.find({atk, def});
+    if (it != typeChart.end()) {
+        return it->second;
+    }
+    std::cerr << "❌ No match for: '" << atk << "' vs '" << def << "'\n";
+    return 1.0;
+}
+
+// Calculate total effectiveness of attackingType against defending Pokemon types
+double calcEffectiveness(const std::string& attackingType, const Pokemon& defender,
+                         const std::map<std::pair<std::string, std::string>, double>& typeChart) {
+    double mult1 = getMultiplier(attackingType, defender.type1, typeChart);
+    double mult2 = defender.type2.empty() ? 1.0 : getMultiplier(attackingType, defender.type2, typeChart);
+    return mult1 * mult2;
+}
+
+cv::Mat hwnd2mat(HWND hwnd) {
+    HDC hwindowDC = GetDC(hwnd);
+    HDC hwindowCompatibleDC = CreateCompatibleDC(hwindowDC);
+    RECT windowsize;
+    GetClientRect(hwnd, &windowsize);
+    int width = windowsize.right;
+    int height = windowsize.bottom;
+    HBITMAP hbwindow = CreateCompatibleBitmap(hwindowDC, width, height);
+    SelectObject(hwindowCompatibleDC, hbwindow);
+    BitBlt(hwindowCompatibleDC, 0, 0, width, height, hwindowDC, 0, 0, SRCCOPY);
+    BITMAPINFOHEADER bi = { sizeof(BITMAPINFOHEADER), width, -height, 1, 32, BI_RGB };
+    cv::Mat mat(height, width, CV_8UC4);
+    GetDIBits(hwindowCompatibleDC, hbwindow, 0, height, mat.data, (BITMAPINFO*)&bi, DIB_RGB_COLORS);
+    DeleteObject(hbwindow);
+    DeleteDC(hwindowCompatibleDC);
+    ReleaseDC(hwnd, hwindowDC);
+    return mat;
+}
+
+std::unordered_set<std::string> loadPokemonNamesFromCSV(const std::string& filename) {
+    std::unordered_set<std::string> names;
+    std::ifstream file(filename);
+    std::string line;
+    std::getline(file, line); // skip header
+    while (std::getline(file, line)) {
+        std::stringstream ss(line);
+        std::string id, name;
+        std::getline(ss, id, ',');
+        std::getline(ss, name, ',');
+        names.insert(name);
+    }
+    return names;
+}
+
+int levenshtein(const std::string& s1, const std::string& s2) {
+    const size_t len1 = s1.size(), len2 = s2.size();
+    std::vector<std::vector<unsigned int>> d(len1 + 1, std::vector<unsigned int>(len2 + 1));
+
+    for (size_t i = 0; i <= len1; ++i) d[i][0] = i;
+    for (size_t i = 0; i <= len2; ++i) d[0][i] = i;
+
+    for (size_t i = 1; i <= len1; ++i)
+        for (size_t j = 1; j <= len2; ++j)
+            d[i][j] = std::min({ d[i - 1][j] + 1,
+                                 d[i][j - 1] + 1,
+                                 d[i - 1][j - 1] + (s1[i - 1] == s2[j - 1] ? 0 : 1) });
+
+    return d[len1][len2];
+}
+
+std::vector<std::string> extractPokemonFromOCR(const std::string& ocrText, const std::unordered_set<std::string>& validNames) {
+    std::istringstream iss(ocrText);
+    std::string word;
+    std::vector<std::string> found;
+    while (iss >> word) {
+        word.erase(remove_if(word.begin(), word.end(), ::ispunct), word.end());
+        for (const auto& name : validNames) {
+            if (levenshtein(word, name) <= 2) {
+                found.push_back(name);
+                break;
+            }
+        }
+    }
+    return found;
+}
+
+int main() {
+    // Screenshot
+    HWND hwnd = GetDesktopWindow();
+    cv::Mat screenshot = hwnd2mat(hwnd);
+    cv::imwrite("screen.png", screenshot);
+    std::cout << "Screenshot taken.\n";
+
+    // OCR
+    tesseract::TessBaseAPI tess;
+    tess.Init(NULL, "eng", tesseract::OEM_LSTM_ONLY);
+    tess.SetPageSegMode(tesseract::PSM_AUTO);
+    tess.SetImage(screenshot.data, screenshot.cols, screenshot.rows, 4, screenshot.step);
+    std::string text = tess.GetUTF8Text();
+    std::cout << "[OCR TEXT]\n" << text << "\n";
+
+    // Load Pokémon names
+    auto names = loadPokemonNamesFromCSV("pokemon.csv");
+    auto found = extractPokemonFromOCR(text, names);
+
+    // Change these paths as needed
+    std::string chartFile = "chart.csv";
+    std::string pokemonFile = "pokemon.csv";
+
+    std::map<std::pair<std::string, std::string>, double> typeChart;
+    std::vector<std::string> defendingTypes;
+    loadChart(chartFile, typeChart, defendingTypes);
+    std::cout << "Loaded chart size: " << typeChart.size() << "\n";
+
+    std::map<std::string, Pokemon> pokemonMap;
+    loadPokemon(pokemonFile, pokemonMap);
+    std::vector<std::string> pokemonNames;
+    std::cout << "=== Found Pokemon ===\n";
+    for (const auto& rawName : found) {
+        pokemonNames.push_back(rawName);
+    }
+    std::sort(pokemonNames.begin(), pokemonNames.end());
+    auto last = std::unique(pokemonNames.begin(), pokemonNames.end());
+    pokemonNames.erase(last, pokemonNames.end());
+
+    for (const auto& rawName : pokemonNames){
+        std::string pokeName = trim(rawName);
+
+        auto it = pokemonMap.find(pokeName);
+        if (it == pokemonMap.end()) {
+            std::cout << "Pokemon '" << pokeName << "' not found!\n";
+            continue;
+        }
+
+        const Pokemon& p = it->second;
+        std::cout << p.name << " types: " << p.type1;
+        if (!p.type2.empty()) std::cout << ", " << p.type2;
+        std::cout << "\n";
+
+        std::cout << "Effectiveness of each attacking type against " << p.name << ":\n";
+        for (const std::string& attackingType : defendingTypes) {
+            double effectiveness = calcEffectiveness(attackingType, p, typeChart);
+            if (effectiveness != 1.0)
+                std::cout << attackingType << ": " << effectiveness << "x\n";
+        }
+
+        std::cout << "--------------------------\n";
+    }
+    return 0;
+}
